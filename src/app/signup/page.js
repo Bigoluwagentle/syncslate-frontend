@@ -22,7 +22,7 @@ export default function SignupPage() {
         body: { name, email, password },
       });
       login(data.token, data.user);
-      router.push('/boards'); // we'll build this page next
+      router.push('/boards'); 
     } catch (err) {
       setError(err.message);
     }
