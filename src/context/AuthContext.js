@@ -9,7 +9,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true); // true while we check localStorage
 
-  // On first load, check if we already have a saved login from before.
+ 
   useEffect(() => {
     const savedToken = localStorage.getItem('syncslate_token');
     const savedUser = localStorage.getItem('syncslate_user');
