@@ -10,12 +10,14 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+    setSubmitting(true);
     try {
       const data = await apiRequest('/auth/login', {
         method: 'POST',
@@ -25,6 +27,7 @@ export default function LoginPage() {
       router.push('/boards');
     } catch (err) {
       setError(err.message);
+      setSubmitting(false); // only reset on failure — on success we're navigating away anyway
     }
   }
 
@@ -48,11 +51,12 @@ export default function LoginPage() {
               type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required
             />
             {error && <p className="text-sm text-rose-500">{error}</p>}
-            <button
+           <button
               type="submit"
-              className="mt-2 rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white transition hover:bg-indigo-500"
+              disabled={submitting}
+              className="mt-2 rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:opacity-50"
             >
-              Log In
+              {submitting ? 'Logging in…' : 'Log In'}
             </button>
           </form>
         </div>

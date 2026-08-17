@@ -11,21 +11,24 @@ export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
 
-  async function handleSubmit(e) {
+ async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+    setSubmitting(true);
     try {
       const data = await apiRequest('/auth/signup', {
         method: 'POST',
         body: { name, email, password },
       });
       login(data.token, data.user);
-      router.push('/boards'); 
+      router.push('/boards');
     } catch (err) {
       setError(err.message);
+      setSubmitting(false);
     }
   }
 
@@ -53,9 +56,10 @@ export default function SignupPage() {
             {error && <p className="text-sm text-rose-500">{error}</p>}
             <button
               type="submit"
-              className="mt-2 rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white transition hover:bg-indigo-500"
+              disabled={submitting}
+              className="mt-2 rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:opacity-50"
             >
-              Sign Up
+              {submitting ? 'Creating account…' : 'Sign Up'}
             </button>
           </form>
         </div>
