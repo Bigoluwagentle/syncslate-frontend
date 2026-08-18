@@ -39,13 +39,12 @@ export default function Whiteboard({ boardId }) {
 
   // Delete the selected shape with Delete/Backspace — but not while typing
   // inside the text-editing overlay.
-  useEffect(() => {
+ useEffect(() => {
     function handleKeyDown(e) {
       const tag = document.activeElement.tagName;
       if (tag === 'TEXTAREA' || tag === 'INPUT') return;
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
-        setElements((prev) => prev.filter((el) => el.id !== selectedId));
-        setSelectedId(null);
+        deleteSelected();
       }
     }
     window.addEventListener('keydown', handleKeyDown);
@@ -121,11 +120,19 @@ export default function Whiteboard({ boardId }) {
     setElements((prev) => prev.map((el) => (el.id === id ? { ...el, ...changes } : el)));
   }
 
+  function deleteSelected() {
+    if (!selectedId) return;
+    setElements((prev) => prev.filter((el) => el.id !== selectedId));
+    setSelectedId(null);
+  }
+
+
+
   const editingElement = elements.find((el) => el.id === editingId);
 
   return (
     <div className="flex h-full flex-col">
-      <Toolbar tool={tool} setTool={setTool} color={color} setColor={setColor} colors={COLORS} />
+      <Toolbar tool={tool} setTool={setTool} color={color} setColor={setColor} colors={COLORS} onDelete={deleteSelected} hasSelection={!!selectedId} />
 
       <div ref={containerRef} className="relative flex-1 overflow-hidden bg-white">
         <Stage
