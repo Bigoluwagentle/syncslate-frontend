@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, Fragment } from 'react';
 import { Stage, Layer, Rect, Circle, Text, Line } from 'react-konva';
 import Toolbar from './Toolbar';
+import { useYBoard } from '@/hooks/useYBoard';
 
 const COLORS = ['#4F46E5', '#FB7185', '#2DD4BF', '#F59E0B', '#64748B'];
 
@@ -10,10 +11,11 @@ function makeId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-export default function Whiteboard({ boardId }) {
+export default function Whiteboard({ boardId, token }) {
+  const { elements, addElement, updateElement, deleteElement, status } = useYBoard(boardId, token);
+
   const [tool, setTool] = useState('select');
   const [color, setColor] = useState(COLORS[0]);
-  const [elements, setElements] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [drawingId, setDrawingId] = useState(null);
@@ -22,14 +24,10 @@ export default function Whiteboard({ boardId }) {
   const stageRef = useRef(null);
   const containerRef = useRef(null);
 
-  // Keep the canvas sized to fill its container, including on window resize.
   useEffect(() => {
     function updateSize() {
       if (containerRef.current) {
-        setStageSize({
-          width: containerRef.current.clientWidth,
-          height: containerRef.current.clientHeight,
-        });
+        setStageSize({ width: containerRef.current.clientWidth, height: containerRef.current.clientHeight });
       }
     }
     updateSize();
@@ -37,15 +35,17 @@ export default function Whiteboard({ boardId }) {
     return () => window.removeEventListener('resize', updateSize);
   }, []);
 
-  // Delete the selected shape with Delete/Backspace — but not while typing
-  // inside the text-editing overlay.
- useEffect(() => {
+  function deleteSelected() {
+    if (!selectedId) return;
+    deleteElement(selectedId);
+    setSelectedId(null);
+  }
+
+  useEffect(() => {
     function handleKeyDown(e) {
       const tag = document.activeElement.tagName;
       if (tag === 'TEXTAREA' || tag === 'INPUT') return;
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
-        deleteSelected();
-      }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) deleteSelected();
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -67,23 +67,21 @@ export default function Whiteboard({ boardId }) {
     const id = makeId();
 
     if (tool === 'rect') {
-      setElements((prev) => [...prev, { id, type: 'rect', x: pos.x, y: pos.y, width: 0, height: 0, fill: color }]);
+      addElement({ id, type: 'rect', x: pos.x, y: pos.y, width: 0, height: 0, fill: color });
       setDrawingId(id);
     } else if (tool === 'circle') {
-      setElements((prev) => [...prev, { id, type: 'circle', x: pos.x, y: pos.y, radius: 0, fill: color }]);
+      addElement({ id, type: 'circle', x: pos.x, y: pos.y, radius: 0, fill: color });
       setDrawingId(id);
     } else if (tool === 'pen') {
-      setElements((prev) => [...prev, { id, type: 'path', points: [pos.x, pos.y], stroke: color }]);
+      addElement({ id, type: 'path', points: [pos.x, pos.y], stroke: color });
       setDrawingId(id);
     } else if (tool === 'sticky') {
-      const newEl = { id, type: 'sticky', x: pos.x, y: pos.y, width: 160, height: 160, fill: color, text: '' };
-      setElements((prev) => [...prev, newEl]);
+      addElement({ id, type: 'sticky', x: pos.x, y: pos.y, width: 160, height: 160, fill: color, text: '' });
       setTool('select');
       setSelectedId(id);
       setEditingId(id);
     } else if (tool === 'text') {
-      const newEl = { id, type: 'text', x: pos.x, y: pos.y, text: '', fontSize: 20, fill: '#14171F' };
-      setElements((prev) => [...prev, newEl]);
+      addElement({ id, type: 'text', x: pos.x, y: pos.y, text: '', fontSize: 20, fill: '#14171F' });
       setTool('select');
       setSelectedId(id);
       setEditingId(id);
@@ -93,56 +91,40 @@ export default function Whiteboard({ boardId }) {
   function handleMouseMove() {
     if (!drawingId) return;
     const pos = getPointer();
+    const el = elements.find((e) => e.id === drawingId);
+    if (!el) return;
 
-    setElements((prev) =>
-      prev.map((el) => {
-        if (el.id !== drawingId) return el;
-        if (el.type === 'rect') return { ...el, width: pos.x - el.x, height: pos.y - el.y };
-        if (el.type === 'circle') {
-          const dx = pos.x - el.x;
-          const dy = pos.y - el.y;
-          return { ...el, radius: Math.sqrt(dx * dx + dy * dy) };
-        }
-        if (el.type === 'path') return { ...el, points: [...el.points, pos.x, pos.y] };
-        return el;
-      })
-    );
+    if (el.type === 'rect') {
+      updateElement(drawingId, { width: pos.x - el.x, height: pos.y - el.y });
+    } else if (el.type === 'circle') {
+      const dx = pos.x - el.x;
+      const dy = pos.y - el.y;
+      updateElement(drawingId, { radius: Math.sqrt(dx * dx + dy * dy) });
+    } else if (el.type === 'path') {
+      updateElement(drawingId, { points: [...el.points, pos.x, pos.y] });
+    }
   }
 
   function handleMouseUp() {
     if (drawingId) {
       setDrawingId(null);
-      setTool('select'); // after drawing one shape, drop back into select mode
+      setTool('select');
     }
   }
-
-  function updateElement(id, changes) {
-    setElements((prev) => prev.map((el) => (el.id === id ? { ...el, ...changes } : el)));
-  }
-
-  function deleteSelected() {
-    if (!selectedId) return;
-    setElements((prev) => prev.filter((el) => el.id !== selectedId));
-    setSelectedId(null);
-  }
-
-
 
   const editingElement = elements.find((el) => el.id === editingId);
 
   return (
     <div className="flex h-full flex-col">
-      <Toolbar tool={tool} setTool={setTool} color={color} setColor={setColor} colors={COLORS} onDelete={deleteSelected} hasSelection={!!selectedId} />
+      <div className="flex items-center justify-between">
+        <Toolbar tool={tool} setTool={setTool} color={color} setColor={setColor} colors={COLORS} onDelete={deleteSelected} hasSelection={!!selectedId} />
+        <span className={`mr-4 rounded-full px-2 py-0.5 text-xs font-medium ${status === 'connected' ? 'bg-teal-50 text-teal-600' : 'bg-amber-50 text-amber-600'}`}>
+          {status === 'connected' ? 'Live' : 'Connecting…'}
+        </span>
+      </div>
 
       <div ref={containerRef} className="relative flex-1 overflow-hidden bg-white">
-        <Stage
-          ref={stageRef}
-          width={stageSize.width}
-          height={stageSize.height}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-        >
+        <Stage ref={stageRef} width={stageSize.width} height={stageSize.height} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
           <Layer>
             {elements.map((el) => {
               const isSelected = el.id === selectedId;
@@ -154,22 +136,14 @@ export default function Whiteboard({ boardId }) {
                 strokeWidth: isSelected ? 2 : 0,
               };
 
-              if (el.type === 'rect') {
-                return <Rect key={el.id} {...common} x={el.x} y={el.y} width={el.width} height={el.height} fill={el.fill} cornerRadius={4} />;
-              }
-              if (el.type === 'circle') {
-                return <Circle key={el.id} {...common} x={el.x} y={el.y} radius={el.radius} fill={el.fill} />;
-              }
-              if (el.type === 'path') {
-                return <Line key={el.id} points={el.points} stroke={el.stroke} strokeWidth={3} lineCap="round" lineJoin="round" tension={0.5} />;
-              }
+              if (el.type === 'rect') return <Rect key={el.id} {...common} x={el.x} y={el.y} width={el.width} height={el.height} fill={el.fill} cornerRadius={4} />;
+              if (el.type === 'circle') return <Circle key={el.id} {...common} x={el.x} y={el.y} radius={el.radius} fill={el.fill} />;
+              if (el.type === 'path') return <Line key={el.id} points={el.points} stroke={el.stroke} strokeWidth={3} lineCap="round" lineJoin="round" tension={0.5} />;
               if (el.type === 'sticky') {
                 return (
                   <Fragment key={el.id}>
                     <Rect {...common} x={el.x} y={el.y} width={el.width} height={el.height} fill={el.fill} cornerRadius={6} shadowBlur={4} shadowOpacity={0.15} onDblClick={() => setEditingId(el.id)} />
-                    {editingId !== el.id && (
-                      <Text x={el.x + 10} y={el.y + 10} width={el.width - 20} text={el.text} fontSize={14} fill="#14171F" listening={false} />
-                    )}
+                    {editingId !== el.id && <Text x={el.x + 10} y={el.y + 10} width={el.width - 20} text={el.text} fontSize={14} fill="#14171F" listening={false} />}
                   </Fragment>
                 );
               }

@@ -48,7 +48,7 @@ export default function BoardPage() {
       {error && <p className="px-6 py-2 text-sm text-rose-500">{error}</p>}
 
       <div className="flex-1 overflow-hidden">
-        {board && <Whiteboard boardId={board._id} />}
+        {board && <Whiteboard boardId={board._id} token={token} />}
       </div>
     </div>
   );
