@@ -32,7 +32,6 @@ export default function LoginPage() {
   }
 
 
-// ...keep all existing state and handleSubmit logic above this...
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4">

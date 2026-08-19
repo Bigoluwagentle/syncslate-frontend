@@ -11,8 +11,8 @@ function makeId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-export default function Whiteboard({ boardId, token }) {
-  const { elements, addElement, updateElement, deleteElement, status } = useYBoard(boardId, token);
+export default function Whiteboard({ boardId, token, user }) {
+  const { elements, addElement, updateElement, deleteElement, status, peers, updateCursor } = useYBoard(boardId, token, user);
 
   const [tool, setTool] = useState('select');
   const [color, setColor] = useState(COLORS[0]);
@@ -89,8 +89,10 @@ export default function Whiteboard({ boardId, token }) {
   }
 
   function handleMouseMove() {
-    if (!drawingId) return;
     const pos = getPointer();
+    if (pos) updateCursor(pos);
+
+    if (!drawingId) return;
     const el = elements.find((e) => e.id === drawingId);
     if (!el) return;
 
@@ -156,6 +158,24 @@ export default function Whiteboard({ boardId, token }) {
             })}
           </Layer>
         </Stage>
+
+        {peers.map((peer) => (
+          <div
+            key={peer.clientId}
+            className="pointer-events-none absolute z-10 transition-transform duration-75"
+            style={{ left: peer.cursor.x, top: peer.cursor.y }}
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M1 1L7 16L9.5 9.5L16 7L1 1Z" fill={peer.user.color} />
+            </svg>
+            <span
+              className="mt-0.5 inline-block rounded-full px-2 py-0.5 text-xs font-medium text-white"
+              style={{ backgroundColor: peer.user.color }}
+            >
+              {peer.user.name}
+            </span>
+          </div>
+        ))}
 
         {editingElement && (
           <textarea
